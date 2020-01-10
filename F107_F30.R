@@ -6,19 +6,21 @@ library(plotly)
 rm(list=ls())
 ##
 ##
-F30 <-fread("C:/Users/howe/Desktop/F30_predictions_win/F107_F30.csv",sep = ',')
+F30 <-fread("./F107_F30.csv")
 summary(F30)
 
 colnames(F30) <- c("JD","Year","Month","Day", "F10_7","F30_R" )
 F30$Ymd <- as.Date(paste(F30$Year, F30$Month, F30$Day, sep = "-"))
-F301<-F30[Ymd>="1964-07-01",.(Ymd,F10_7),]
+# F301<-F30[Ymd>="1964-07-01",.(Ymd,F10_7),]
+F301<-F30[Ymd>="1951-01-01",.(Ymd,F10_7),]
 F301$Vote <- ifelse(F301$F10_7 ==0,0,0)
 Fit <- as.data.frame(lowess(F301$F10_7,f=0.3))
 F301 <-cbind(F301,Fit$y)
 colnames(F301) <-c("Ymd","F10_7","Vote","Loess")
 str(F301)
 summary(F301)
-##
+## Added by David Jackson 2020-01-08
+F301 %>% ggplot(aes(x=Ymd,y=F10_7)) +geom_line() + geom_line(aes(x=Ymd,y=Loess))
 ## Create monthly summary (Vote) field with XTS
 ##
 isn.xts <- xts(x = F301$F10_7, order.by = F301$Ymd)
@@ -31,7 +33,7 @@ ggplot(data=S3,aes(x=Ymd,y=F10_7)) +geom_line() +geom_smooth(method="loess",col=
 ##
 ## Prophet prediction based on Daily Vote Field
 ##
-df <- S3 %>% select(Ymd,F10_7)
+df <- F301 %>% select(Ymd,F10_7)
 colnames(df) <- c("ds","y")
 m <- prophet(seasonality.mode="multiplicative")
 m <- add_seasonality(m, name="cycle_11year", period=364.25 * 11,fourier.order=5)
@@ -40,7 +42,9 @@ future <- make_future_dataframe(m,periods=8000,freq="day")
 forecast <- predict(m, future)
 plot(m, forecast) +ggtitle("F10_7 Monthly: Jan. 1965 - Dec. 2019") +ylab("Predicted Days w/ F10_7") +
   xlab("Years" )
-
+## Added David Jackson 2020-01-08
+plot(m, forecast) +ggtitle("F10_7 Daily: Jan. 1951 - Dec. 2019") +ylab("Predicted Days w/ F10_7") +
+  xlab("Years" ) +xlim(0,500)
 ##
 S4 <- filter(forecast,ds >="2020-01-01" & ds <="2026-12-31")
 ggplot(data=S4,aes(x=ds,y=yhat_upper,col="Upper")) +geom_col() +
@@ -51,9 +55,30 @@ ggplot(data=S4,aes(x=ds,y=yhat_upper,col="Upper")) +geom_col() +
 ##
 # Create a interactive plot.
 plot_ly(data=S4,x=~ds,y=~yhat,mode="lines")
+fcast <- as.data.table(forecast)
+ggplot(data=S4,aes(x=ds,y=yhat)) + geom_point() + geom_smooth(method="glm")
 ##
 ## Create CSV file
 forecast$Year <- year(forecast$ds)
 forecast$Month <- month(forecast$ds)
+
+
 S5 <- select(forecast,Year,Month,ds,yhat_upper,yhat,yhat_lower)
 write.csv(S5,file="dayPerMonth.csv",row.names = F)
+
+## Added kanzel data: from 1951 2019
+kanzel <- fread("kh_spots.csv")
+kanzel$Ymd <- as.Date(kanzel$Ymd)
+str(kanzel)
+df1 <- kanzel[Ymd>="1951-01-01",.(Ymd,R)]
+colnames(df1) <-c("ds","y")
+m <- prophet(seasonality.mode="multiplicative")
+m <- add_seasonality(m, name="cycle_11year", period=364.25 * 11,fourier.order=5)
+m <- fit.prophet(m, df1)
+future <- make_future_dataframe(m,periods=8000,freq="day")
+forecast <- predict(m, future)
+plot(m, forecast) +ggtitle("Kanzel ISN : Jan. 1951 - Dec. 2019") +ylab("Predicted ISN") +
+  xlab("Years" ) 
+fcast <- as.data.table(forecast)
+fcast <- fcast[ds>="2020-01-01" & ds <="2026-12-31",.(ds,yhat)]
+ggplot(data=fcast,aes(x=ds,y=yhat)) + geom_point() + geom_smooth(method="glm")
