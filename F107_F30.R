@@ -13,14 +13,15 @@ colnames(F30) <- c("JD","Year","Month","Day", "F10_7","F30_R" )
 F30$Ymd <- as.Date(paste(F30$Year, F30$Month, F30$Day, sep = "-"))
 # F301<-F30[Ymd>="1964-07-01",.(Ymd,F10_7),]
 F301<-F30[Ymd>="1951-01-01",.(Ymd,F10_7),]
-F301$Vote <- ifelse(F301$F10_7 ==0,0,0)
-Fit <- as.data.frame(lowess(F301$F10_7,f=0.3))
+F301$Vote <- ifelse(F301$F10_7 >=121.5,"Yes","No")
+Fit <- as.data.frame(lowess(F301$F10_7,f=0.1))
 F301 <-cbind(F301,Fit$y)
 colnames(F301) <-c("Ymd","F10_7","Vote","Loess")
 str(F301)
 summary(F301)
 ## Added by David Jackson 2020-01-08
-F301 %>% ggplot(aes(x=Ymd,y=F10_7)) +geom_line() + geom_line(aes(x=Ymd,y=Loess))
+F301 %>% ggplot(aes(x=Ymd,y=F10_7)) +geom_line() + geom_line(aes(x=Ymd,y=Loess)) +
+  geom_smooth(method="glm")
 ## Create monthly summary (Vote) field with XTS
 ##
 isn.xts <- xts(x = F301$F10_7, order.by = F301$Ymd)
@@ -44,7 +45,7 @@ plot(m, forecast) +ggtitle("F10_7 Monthly: Jan. 1965 - Dec. 2019") +ylab("Predic
   xlab("Years" )
 ## Added David Jackson 2020-01-08
 plot(m, forecast) +ggtitle("F10_7 Daily: Jan. 1951 - Dec. 2019") +ylab("Predicted Days w/ F10_7") +
-  xlab("Years" ) +xlim(0,500)
+  xlab("Years" ) 
 ##
 S4 <- filter(forecast,ds >="2020-01-01" & ds <="2026-12-31")
 ggplot(data=S4,aes(x=ds,y=yhat_upper,col="Upper")) +geom_col() +
@@ -56,7 +57,9 @@ ggplot(data=S4,aes(x=ds,y=yhat_upper,col="Upper")) +geom_col() +
 # Create a interactive plot.
 plot_ly(data=S4,x=~ds,y=~yhat,mode="lines")
 fcast <- as.data.table(forecast)
-ggplot(data=S4,aes(x=ds,y=yhat)) + geom_point() + geom_smooth(method="glm")
+ggplot(data=S4,aes(x=ds,y=yhat)) + geom_line() + geom_smooth(method="glm") +
+  ggtitle("Radio Flux(F10_7-2) Predictionf2020 = 2026") +
+    xlab("Date/Year") + ylab("Predicted Radio Flux")
 ##
 ## Create CSV file
 forecast$Year <- year(forecast$ds)
@@ -81,4 +84,12 @@ plot(m, forecast) +ggtitle("Kanzel ISN : Jan. 1951 - Dec. 2019") +ylab("Predicte
   xlab("Years" ) 
 fcast <- as.data.table(forecast)
 fcast <- fcast[ds>="2020-01-01" & ds <="2026-12-31",.(ds,yhat)]
-ggplot(data=fcast,aes(x=ds,y=yhat)) + geom_point() + geom_smooth(method="glm")
+ggplot(data=fcast,aes(x=ds,y=yhat)) + geom_line() + geom_smooth(method="glm") +
+  ggtitle("Kanzel ISN Predication: 2020 2026") +
+  xlab("Date/Year") +ylab("Prediction")
+##
+##Combined plot kanzel + Radio_flux
+##
+ggplot(data=fcast,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(method="glm") +
+  ggtitle("Comparing ISN/Radio Flux: 2020 2026") + geom_line(data=S4,aes(x=ds,y=yhat,col="F10_7")) +
+  xlab("Date/Year") +ylab("Predicted Values")
