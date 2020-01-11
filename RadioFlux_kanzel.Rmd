@@ -1,6 +1,6 @@
 ---
 title: "Comparing ISN and Radio Flux"
-subtitle: "Jan. 1951 - Dec. 2019
+subtitle: "Jan. 1951 - Dec. 2019"
 author: "David J Jackson"
 date: "1/10/2020"
 output: pdf_document
@@ -81,6 +81,7 @@ ggplot(data=df.isn,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(metho
   xlab("Date/Year") +ylab("Predicted Values")
 
 ```
+
 
 
 
