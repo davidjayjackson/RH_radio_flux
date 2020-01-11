@@ -17,7 +17,6 @@ F301$Vote <- ifelse(F301$F10_7 >=121.5,"Yes","No")
 Fit <- as.data.frame(lowess(F301$F10_7,f=0.1))
 F301 <-cbind(F301,Fit$y)
 colnames(F301) <-c("Ymd","F10_7","Vote","Loess")
-str(F301)
 summary(F301)
 ## Added by David Jackson 2020-01-08
 F301 %>% ggplot(aes(x=Ymd,y=F10_7)) +geom_line() + geom_line(aes(x=Ymd,y=Loess)) +
@@ -93,3 +92,14 @@ ggplot(data=fcast,aes(x=ds,y=yhat)) + geom_line() + geom_smooth(method="glm") +
 ggplot(data=fcast,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(method="glm") +
   ggtitle("Comparing ISN/Radio Flux: 2020 2026") + geom_line(data=S4,aes(x=ds,y=yhat,col="F10_7")) +
   xlab("Date/Year") +ylab("Predicted Values")
+
+mean(kanzel$R) /mean(F301$F10_7)
+RF <- F301
+FDate <- seq(as.Date("1944-05-28"),as.Date("1953-12-31"),by="days")
+FDATE <- as.data.table(FDate)
+FDATE$F10_7 <- 0
+A <- kanzel[Ymd <="1953-12-31",.(Ymd,R)]
+A$F10_7 <- A$R *0.757
+A <- A[,.(Ymd,F10_7)]
+B <-F301[,.(Ymd,F10_7)]
+C <- rbind(A,B)

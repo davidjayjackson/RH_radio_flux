@@ -1,5 +1,5 @@
 ---
-title: "Comparing ISN and Radio Flux"
+title: "Comparing ISN To Radio Flux"
 subtitle: "Jan. 1951 - Dec. 2019"
 author: "David J Jackson"
 date: "1/10/2020"
@@ -31,13 +31,13 @@ ggplot(data=F301,aes(x=Ymd,y=F10_7)) +geom_line() + ggtitle("Radio Flux F19_7: 1
 ```
 
 ```{r Import Kaznel Daily ISN, echo=FALSE}
-kanzel <- fread("kh_spots.csv")
+kanzel <- fread("./kh_spots.csv")
 kanzel$Ymd <- as.Date(kanzel$Ymd)
+kanzel$Vote <- ifelse(kanzel$R >=mean(kanzel$R),"Yes","No")
 df1 <- kanzel[Ymd>="1951-01-01",.(Ymd,R)]
 colnames(df1) <-c("ds","y" )
 ggplot(data=df1,aes(x=ds,y=y)) + geom_line() + 
   ggtitle("Kanzel Daily ISN: 1951 - 2019") + xlab("Date/Year") + ylab("Daily  ISN")
-
 ```
 ```{r 365 Day Moving Average,echo=FALSE}
 library(forecast)
@@ -72,17 +72,38 @@ plot(m, forecast1) +ggtitle("Kanzel ISN : Jan. 1951 - Dec. 2019") +ylab("Predict
 ```
 ```{r}
 df.isn <- as.data.table(forecast1)
-df.isn <- df.isn[ds >="2020-01-01",]
+df.isn <- df.isn[ds >="2020-01-01" & ds <="2025-12-31",]
 df.flux <- as.data.table(forecast)
-df.flux <- df.flux[ds >="2020-01-01",]
+df.flux <- df.flux[ds >="2020-01-01" & ds <="2025-12-31",]
 
 ggplot(data=df.isn,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(method="glm") +
   ggtitle("Comparing ISN/Radio Flux: 2020 2026") + geom_line(data=df.flux,aes(x=ds,y=yhat,col="F10_7")) +
   xlab("Date/Year") +ylab("Predicted Values")
 
 ```
+```{r imput values}
+FDate <- seq(as.Date("1944-05-28"),as.Date("1953-12-31"),by="days")
+FDATE <- as.data.table(FDate)
+FDATE$F10_7 <- 0
+A <- kanzel[Ymd <="1953-12-31",.(Ymd,R)]
+A$F10_7 <- A$R *0.757
+A <- A[,.(Ymd,F10_7)]
+B <-F301[,.(Ymd,F10_7)]
+C <- rbind(A,B)
+ggplot(C) + geom_line(aes(x=Ymd,y=F10_7)) +
+  labs(title="Radio Flux for F10_7 1944 - 2019",subtitle="Includes Imputed data from 1944 - 1954")
+  
+```
 
 
-
-
-
+```{r Filling in missing values}
+df.seq <- C %>% select(Ymd,F10_7)
+colnames(df.seq) <- c("ds","y")
+m <- prophet(seasonality.mode="multiplicative")
+m <- add_seasonality(m, name="cycle_11year", period=364.25 * 11,fourier.order=5)
+m <- fit.prophet(m, df.seq)
+future3 <- make_future_dataframe(m,periods=8000,freq="day")
+forecast3 <- predict(m, future3)
+plot(m, forecast3) +ggtitle("F10_7 Daily: Jan. 1944 - Dec. 2019") +ylab("Predicted Days w/ F10_7") +
+  xlab("Years" ) 
+```
