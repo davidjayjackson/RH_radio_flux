@@ -66,7 +66,7 @@ m <- prophet(seasonality.mode="multiplicative")
 m <- add_seasonality(m, name="cycle_11year", period=364.25 * 11,fourier.order=5)
 m <- fit.prophet(m, df1)
 future1 <- make_future_dataframe(m,periods=8000,freq="day")
-forecast1 <- predict(m, future)
+forecast1 <- predict(m, future1)
 plot(m, forecast1) +ggtitle("Kanzel ISN : Jan. 1951 - Dec. 2019") +ylab("Predicted ISN") +
   xlab("Years" ) 
 ```
@@ -107,3 +107,13 @@ forecast3 <- predict(m, future3)
 plot(m, forecast3) +ggtitle("F10_7 Daily: Jan. 1944 - Dec. 2019") +ylab("Predicted Days w/ F10_7") +
   xlab("Years" ) 
 ```
+```{r}
+df.impute <- as.data.table(forecast3)
+df.impute <- df.impute[ds >="2020-01-01" & ds <="2025-12-31",]
+ggplot(data=df.isn,aes(x=ds,y=yhat,col="ISN")) + geom_line()  +
+   geom_line(data=df.flux,aes(x=ds,y=yhat,col="F10_7")) + 
+   geom_line(data=df.impute,aes(x=ds,y=yhat,col="Imputed")) +
+  ggtitle("Comparing ISN/Radio Flux: 2020 2026") +
+  xlab("Date/Year") +ylab("Predicted Values")
+```
+
