@@ -3,6 +3,7 @@ library(data.table)
 library(xts)
 library(prophet)
 library(plotly)
+library(lubridate)
 rm(list=ls())
 ##
 ##
@@ -21,6 +22,13 @@ summary(F301)
 ## Added by David Jackson 2020-01-08
 F301 %>% ggplot(aes(x=Ymd,y=F10_7)) +geom_line() + geom_line(aes(x=Ymd,y=Loess)) +
   geom_smooth(method="glm")
+##
+F301$Year <- year(F301$Ymd)
+F301$Month <- month(F301$Ymd)
+isn_d <- F301 %>% filter(Year >=2009 & Year <=2019) %>% select(Year,Month,F10_7,Vote)
+ggplot(data=isn_d,aes(x=Vote , fill=Vote ))+
+  geom_histogram(stat="count") + labs(title="Ratio of Days Above and Below Mean: 2009-2019") + facet_wrap(~Year)
+
 ## Create monthly summary (Vote) field with XTS
 ##
 isn.xts <- xts(x = F301$F10_7, order.by = F301$Ymd)
@@ -93,13 +101,46 @@ ggplot(data=fcast,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(method
   ggtitle("Comparing ISN/Radio Flux: 2020 2026") + geom_line(data=S4,aes(x=ds,y=yhat,col="F10_7")) +
   xlab("Date/Year") +ylab("Predicted Values")
 
-mean(kanzel$R) /mean(F301$F10_7)
 RF <- F301
 FDate <- seq(as.Date("1944-05-28"),as.Date("1953-12-31"),by="days")
 FDATE <- as.data.table(FDate)
 FDATE$F10_7 <- 0
 A <- kanzel[Ymd <="1953-12-31",.(Ymd,R)]
-A$F10_7 <- A$R *0.757
+A$F10_7 <- A$R *mean(kanzel$R) /mean(F301$F10_7)
 A <- A[,.(Ymd,F10_7)]
 B <-F301[,.(Ymd,F10_7)]
 C <- rbind(A,B)
+
+ggplot(data=F30,aes(x=Ymd,y=F30_R,col="F30_R")) +geom_line() +
+  geom_line(data=F30,aes(x=Ymd,y=F10_7,col="F10_7")) +
+  ggtitle("Comparing Radio Flus: Jan 1951 - Jan 2020")
+#
+stats <- F30 %>% select(Year,F10_7) %>% group_by(Year) %>%
+  summarise(
+              Mean = mean(F30$F10_7),
+              Medain = median(F30$F10_7),
+              Sd = sd(F30$F10_7))
+summary(stats)
+# Round two
+stats <- F30 %>% group_by(Year) %>%
+  summarise(
+    Mean = mean(F10_7),
+    Median = median(F10_7),
+    Sd = sd(F10_7),
+    N = n()
+  ) 
+  ggplot(stats) + geom_line(aes(x=Year,y=Median,col="Median")) +
+    geom_line(aes(x=Year,y=Mean,col="Mean"))
+  ggplot(stats) + geom_line(aes(x=Year,y=Sd))
+  
+  ## Radio Flux data
+  radio <- fread("./radio_flux.txt")
+  radio$Ymd <- as.Date(paste(radio$year, radio$month, radio$day, sep = "-"))
+  summary(radio)
+    ggplot(data=radio,aes(x=Ymd,y=f10.7)) + geom_line() + geom_smooth()
+  radio$Ma150 <- forecast::ma(radio$f10.7,order=150)
+  radio$Ma365 <- forecast::ma(radio$f10.7,order=365)
+  radio %>% filter(Ymd >="2014-01-01") %>%
+  ggplot() + geom_line(aes(x=Ymd,y=Ma150,col="150")) +
+    geom_line(aes(x=Ymd,y=Ma365,col="365")) +
+    ggtitle("Radio Flux F10.7CM: 2014 - 2019")
