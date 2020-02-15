@@ -49,7 +49,7 @@ fcast <- cbind(fcast,pdates)
 colnames(fcast) <- c("F10.7","L80","H80","L95","H95","Ymd")
 fcast <- fcast %>% select(Ymd,F10.7)
 ```
-```{r Plot fcast data}
+```{r Plot fcast data, echo=FALSE}
 
 ggplot(fcast) + geom_line(aes(x=Ymd,y=F10.7)) +
   labs(title="60 Day Radio Flux Prediction",subtitle="Jan. 1 2014 - Mar. 1 2015")
