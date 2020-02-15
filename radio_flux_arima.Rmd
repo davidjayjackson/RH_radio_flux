@@ -1,0 +1,67 @@
+---
+title: "Radio Flux with Arima"
+author: "David J Jackson"
+date: "2/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+library(tidyverse)
+library(forecast)
+library(quantmod)
+library(tsibble)
+rm(list=ls())
+```
+```{r Create Date List, echo=FALSE}
+pdates <- seq(as.Date("2014/1/1"), as.Date("2014/3/1"), "days")
+pdates <- data.table::as.data.table(pdates)
+```
+
+```{r Import Radio Flux Data,echo=FALSE}
+
+df_abs <- data.table::fread("../db/radio_flux_abs.txt")
+df_abs$Ymd <- as.Date(paste(df_abs$year, df_abs$month, df_abs$day, sep = "-"))
+df_abs <- df_abs %>% select(Ymd,f10.7) 
+colnames(df_abs) <- c("Ymd","y")
+```
+```{r Create tsibble, echo=FALSE}
+ts_abs <-as_tsibble(df_abs,index=Ymd) %>% fill_gaps(y=11)
+short_list <- ts_abs %>% filter(Ymd >="2008-01-01" & Ymd <="2013-12-31")
+# plot(short_list,type="l")
+```
+```{r Create Fit, echo=FALSE}
+fit <- auto.arima(short_list$y,ic="bic",seasonal = TRUE)
+plot(fitted(fit),col="red",type="l")
+lines(short_list$y,type="l")
+```
+```{r Make 60 Day Prediction, echo=FALSE}
+fit.forecast <- forecast(fit,h=60)
+plot(fit.forecast,type="l")
+```
+
+```{r Create fcast, echo=TRUE}
+fcast <- data.table::as.data.table(fit.forecast)
+fcast <- cbind(fcast,pdates)
+colnames(fcast) <- c("F10.7","L80","H80","L95","H95","Ymd")
+fcast <- fcast %>% select(Ymd,F10.7)
+```
+```{r Plot fcast data}
+
+ggplot(fcast) + geom_line(aes(x=Ymd,y=F10.7)) +
+  labs(title="60 Day Radio Flux Prediction",subtitle="Jan. 1 2014 - Mar. 1 2015")
+
+```
+```{r Plot 60 Day, echo=FALSE}
+colnames(short_list) <- c("Ymd","F10.7")
+short_list <- data.table:: as.data.table(short_list)
+A <- rbind(short_list)
+A <- A %>% filter(Ymd>="2013-01-01")
+ggplot(A) + geom_line(aes(x=Ymd,y=F10.7,col="F10.7")) +
+  geom_line(data=fcast,aes(x=Ymd,y=F10.7,col="Pred")) +
+  labs(title="Solar Radio Flux Prediction (F10.7Cm)", 
+       subtitle = "Jan. 1, 2014 - Mar. 1, 2014")
+```
