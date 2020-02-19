@@ -1,0 +1,61 @@
+---
+title: "Radio Flux"
+author: "David J Jackson"
+date: "2/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(prophet)
+library(forecastLM)
+
+```
+
+# Import Radio Flux Data
+```{r Import Radio flux Data}
+radio <- data.table::fread("../db/radio_flux_abs.txt")
+radio$Ymd <- as.Date(paste(radio$year, radio$month, radio$day, sep = "-"))
+radio <- radio %>% select(year,Ymd,f10.7)
+radio %>% filter(year>=2019) %>% ggplot() + geom_line(aes(x=Ymd,y=f10.7)) +
+  ggtitle("Solar Radio Flux F10.7: Jan 2019 - ?")
+radio %>% filter(year>=2020) %>% ggplot() + geom_line(aes(x=Ymd,y=f10.7)) +
+  ggtitle("Solar Radio Flux F10.7 Jan. 2020 - ?")
+
+```
+```{r}
+df <- radio %>% select(Ymd,f10.7)
+colnames(df) <- c("ds","y")
+m <- prophet(seasonality.mode="multiplicative")
+m <- add_seasonality(m, name="cycle_11year", period=364.25 * 11,fourier.order=5)
+m <- fit.prophet(m, df)
+future <- make_future_dataframe(m,periods=8000,freq="day",include_history = TRUE)
+forecast <- predict(m, future)
+plot(m, forecast) +ggtitle("F10.7 Daily: Jan. 1951 - Dec. 2019") +ylab("Predicted Days w/ F10.7") +
+  xlab("Years" ) 
+```
+```{r}
+forecast %>% filter(ds >="2020-01-01") %>% ggplot() + geom_line(aes(x=ds,y=yhat))
+```
+
+# Use forecastLM library to predict solar flux .
+Maintainer: Rami Krispin <rami.krispin@gmail.com>
+Description: Provides a forecasting framework based on linear regression model.
+```{r forecastLM}
+df <- radio %>% select(Ymd,f10.7)
+colnames(df) <- c("date","y")
+flux <- tsibble::as_tsibble(df)
+md <- trainLM(input = flux,
+              y = "y",
+              trend = list(linear = TRUE),
+              seasonal = "yday",
+              lags = c(1, 12))
+
+# Forecasting the future observations
+fc <- forecastLM(model = md,
+                 h = 1000)
+
+# Plotting the forecast
+plot_fc(fc)
+```

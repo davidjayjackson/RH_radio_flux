@@ -22,17 +22,19 @@ summary(F30)
 colnames(F30) <- c("JD","Year","Month","Day", "F10_7","F30_R" )
 F30$Ymd <- as.Date(paste(F30$Year, F30$Month, F30$Day, sep = "-"))
 # F301<-F30[Ymd>="1964-07-01",.(Ymd,F10_7),]
-F301<-F30[Ymd>="1951-01-01",.(Ymd,F10_7),]
+F301<-F30[Ymd>="1951-01-01",.(Ymd,Year,Month,F10_7),]
 F301$Vote <- ifelse(F301$F10_7 >=121.5,"Yes","No")
 Fit <- as.data.frame(lowess(F301$F10_7,f=0.1))
 F301 <-cbind(F301,Fit$y)
-colnames(F301) <-c("Ymd","F10_7","Vote","Loess")
+colnames(F301) <-c("Ymd","Year","Month","F10_7","Vote","Loess")
 ggplot(data=F301,aes(x=Ymd,y=F10_7)) +geom_line() + ggtitle("Radio Flux F19_7: 1951 - 2019")
 ```
 
 ```{r Import Kaznel Daily ISN, echo=FALSE}
 kanzel <- fread("./kh_spots.csv")
 kanzel$Ymd <- as.Date(kanzel$Ymd)
+kanzel$Year <- year(kanzel$Ymd)
+kanzel$Month <- month(kanzel$Ymd)
 kanzel$Vote <- ifelse(kanzel$R >=mean(kanzel$R),"Yes","No")
 df1 <- kanzel[Ymd>="1951-01-01",.(Ymd,R)]
 colnames(df1) <-c("ds","y" )
@@ -45,7 +47,7 @@ F301$Ma <- ma(F301$F10_7,order=365)
 df1$Ma <- ma(df1$y,order=365)
 ggplot(data=F301,aes(x=Ymd,y=Ma,col="F10_7")) + geom_line() +
 geom_line(data=df1,aes(x=ds,y=Ma,col="ISN")) + 
-  ggtitle("Kanzel/Radio Flux 365 Day Moving Average") +
+  ggtitle("Sunspots(ISN)/Radio Flux 365 Day Moving Average") +
   xlab("Year/Day") + ylab("Moving Average")
 ```
 ```{r Predict Daily Radio Flux}
@@ -54,7 +56,7 @@ colnames(df) <- c("ds","y")
 m <- prophet(seasonality.mode="multiplicative")
 m <- add_seasonality(m, name="cycle_11year", period=364.25 * 11,fourier.order=5)
 m <- fit.prophet(m, df)
-future <- make_future_dataframe(m,periods=8000,freq="day")
+future <- make_future_dataframe(m,periods=8000,freq="day",include_history = TRUE)
 forecast <- predict(m, future)
 plot(m, forecast) +ggtitle("F10_7 Daily: Jan. 1951 - Dec. 2019") +ylab("Predicted Days w/ F10_7") +
   xlab("Years" ) 
@@ -81,12 +83,23 @@ ggplot(data=df.isn,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(metho
   xlab("Date/Year") +ylab("Predicted Values")
 
 ```
+```{r}
+df.isn1 <- as.data.table(forecast1)
+df.isn1 <- df.isn[ds >="2020-01-01",]
+df.flux1 <- as.data.table(forecast)
+df.flux1 <- df.flux[ds >="2020-01-01" ,]
+
+ggplot(data=df.isn1,aes(x=ds,y=yhat,col="ISN")) + geom_line() + geom_smooth(method="glm") +
+  ggtitle("Comparing ISN/Radio Flux: Cycle 25 and Beyond") + geom_line(data=df.flux1,aes(x=ds,y=yhat,col="F10_7")) +
+  xlab("Date/Year") +ylab("Predicted Values")
+```
+
 ```{r imput values}
 FDate <- seq(as.Date("1944-05-28"),as.Date("1953-12-31"),by="days")
 FDATE <- as.data.table(FDate)
 FDATE$F10_7 <- 0
 A <- kanzel[Ymd <="1953-12-31",.(Ymd,R)]
-A$F10_7 <- A$R *0.757
+libA$F10_7 <- A$R *0.757
 A <- A[,.(Ymd,F10_7)]
 B <-F301[,.(Ymd,F10_7)]
 C <- rbind(A,B)

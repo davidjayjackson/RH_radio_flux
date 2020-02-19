@@ -134,13 +134,18 @@ stats <- F30 %>% group_by(Year) %>%
   ggplot(stats) + geom_line(aes(x=Year,y=Sd))
   
   ## Radio Flux data
-  radio <- fread("./radio_flux.txt")
+  radio <- fread("../db/radio_flux.txt")
   radio$Ymd <- as.Date(paste(radio$year, radio$month, radio$day, sep = "-"))
   summary(radio)
-    ggplot(data=radio,aes(x=Ymd,y=f10.7)) + geom_line() + geom_smooth()
+  radio %>% filter(Ymd>="2018-01-01") %>%
+    ggplot(aes(x=Ymd,y=f10.7)) + geom_line() + geom_smooth()
   radio$Ma150 <- forecast::ma(radio$f10.7,order=150)
   radio$Ma365 <- forecast::ma(radio$f10.7,order=365)
-  radio %>% filter(Ymd >="2014-01-01") %>%
+  radio %>% filter(Ymd >="2018-01-01") %>%
   ggplot() + geom_line(aes(x=Ymd,y=Ma150,col="150")) +
     geom_line(aes(x=Ymd,y=Ma365,col="365")) +
     ggtitle("Radio Flux F10.7CM: 2014 - 2019")
+  
+  R <- radio %>% select(Ymd,year:f3.2_f)
+  write.csv(R,file="radioFlux.csv",row.names = FALSE)
+  
